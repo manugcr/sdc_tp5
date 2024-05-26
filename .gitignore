@@ -1,0 +1,14 @@
+# Ignore kernel module build files
+*.ko
+*.ko.*
+
+*.mod
+*.mod.*
+
+*.o
+*.o.*
+
+modules.order
+Module.symvers
+.Module.*
+.modules.*
