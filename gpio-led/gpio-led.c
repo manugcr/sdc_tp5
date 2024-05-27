@@ -10,9 +10,29 @@
 // Define GPIO base addresses
 #define BCM2837_GPIO_ADDRESS 0x3F200000
 
+// Function prototypes
+static void gpio_pin_on(unsigned int pin);
+static void gpio_pin_off(unsigned int pin);
+static int device_open(struct inode *inode, struct file *file);
+static int device_release(struct inode *inode, struct file *file);
+static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset);
+static int __init gpio_led_init(void);
+static void __exit gpio_led_exit(void);
+
+// Global variables
 static int major_number;
 static unsigned int *gpio_registers = NULL;
 
+/**
+ * @brief File operations structure.
+ *
+ * This structure defines the file operations for the device.
+ */
+static struct file_operations fops = {
+	.open = device_open,
+	.release = device_release,
+	.write = device_write,
+};
 
 /**
  * @brief Turn on the GPIO pin.
@@ -24,17 +44,17 @@ static unsigned int *gpio_registers = NULL;
  */
 static void gpio_pin_on(unsigned int pin)
 {
-    unsigned int fsel_index = pin / 10;                         // Calculate the FSEL register index 
-    unsigned int fsel_bitpos = pin % 10;                        // Calculate the bit position in the FSEL register
-    unsigned int *gpio_fsel = gpio_registers + fsel_index;      // Pointer to the FSEL register
-    // Pointer to the GPIO output set register
-    unsigned int *gpio_on_register = (unsigned int *)((char *)gpio_registers + 0x1c);
+	unsigned int fsel_index = pin / 10;					   // Calculate the FSEL register index
+	unsigned int fsel_bitpos = pin % 10;				   // Calculate the bit position in the FSEL register
+	unsigned int *gpio_fsel = gpio_registers + fsel_index; // Pointer to the FSEL register
+	// Pointer to the GPIO output set register
+	unsigned int *gpio_on_register = (unsigned int *)((char *)gpio_registers + 0x1c);
 
-    *gpio_fsel &= ~(7 << (fsel_bitpos * 3));                    // Clear the bits for the pin
-    *gpio_fsel |= (1 << (fsel_bitpos * 3));                     // Set the pin as output
-    *gpio_on_register |= (1 << pin);                            // Set the pin high
+	*gpio_fsel &= ~(7 << (fsel_bitpos * 3)); // Clear the bits for the pin
+	*gpio_fsel |= (1 << (fsel_bitpos * 3));	 // Set the pin as output
+	*gpio_on_register |= (1 << pin);		 // Set the pin high
 
-    printk(KERN_INFO "GPIO LED: Pin %d turned ON.\n", pin);
+	printk(KERN_INFO "GPIO LED: Pin %d turned ON.\n", pin);
 }
 
 /**
@@ -47,11 +67,11 @@ static void gpio_pin_on(unsigned int pin)
  */
 static void gpio_pin_off(unsigned int pin)
 {
-    // Pointer to the GPIO output clear register
-    unsigned int *gpio_off_register = (unsigned int *)((char *)gpio_registers + 0x28);
-    *gpio_off_register |= (1 << pin);       // Set the pin low
+	// Pointer to the GPIO output clear register
+	unsigned int *gpio_off_register = (unsigned int *)((char *)gpio_registers + 0x28);
+	*gpio_off_register |= (1 << pin); // Set the pin low
 
-    printk(KERN_INFO "GPIO LED: Pin %d turned OFF.\n", pin);
+	printk(KERN_INFO "GPIO LED: Pin %d turned OFF.\n", pin);
 }
 
 /**
@@ -65,8 +85,8 @@ static void gpio_pin_off(unsigned int pin)
  */
 static int device_open(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "GPIO LED: Device opened.\n");
-    return 0;
+	printk(KERN_INFO "GPIO LED: Device opened.\n");
+	return 0;
 }
 
 /**
@@ -80,8 +100,8 @@ static int device_open(struct inode *inode, struct file *file)
  */
 static int device_release(struct inode *inode, struct file *file)
 {
-    printk(KERN_INFO "GPIO LED: Device closed.\n");
-    return 0;
+	printk(KERN_INFO "GPIO LED: Device closed.\n");
+	return 0;
 }
 
 /**
@@ -98,40 +118,29 @@ static int device_release(struct inode *inode, struct file *file)
  */
 static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset)
 {
-    int value;
+	int value;
 
-    if (len > 0)
-    {
-        if (copy_from_user(&value, buffer, sizeof(int)))
-        {
-            printk(KERN_ALERT "GPIO LED: Failed to copy from user.\n");
-            return -EFAULT;
-        }
+	if (len > 0)
+	{
+		if (copy_from_user(&value, buffer, sizeof(int)))
+		{
+			printk(KERN_ALERT "GPIO LED: Failed to copy from user.\n");
+			return -EFAULT;
+		}
 
-        printk(KERN_INFO "GPIO LED: Writing value %d to GPIO %d.\n", value, GPIO_LED);
+		printk(KERN_INFO "GPIO LED: Writing value %d to GPIO %d.\n", value, GPIO_LED);
 
-        if (value)
-        {
-            gpio_pin_on(GPIO_LED);
-        }
-        else
-        {
-            gpio_pin_off(GPIO_LED);
-        }
-    }
-    return len;
+		if (value)
+		{
+			gpio_pin_on(GPIO_LED);
+		}
+		else
+		{
+			gpio_pin_off(GPIO_LED);
+		}
+	}
+	return len;
 }
-
-/**
- * @brief File operations structure.
- *
- * This structure defines the file operations for the device.
- */
-static struct file_operations fops = {
-    .open = device_open,
-    .release = device_release,
-    .write = device_write,
-};
 
 /**
  * @brief Module initialization function.
@@ -143,29 +152,29 @@ static struct file_operations fops = {
  */
 static int __init gpio_led_init(void)
 {
-    printk(KERN_INFO "GPIO LED: Initializing.\n");
+	printk(KERN_INFO "GPIO LED: Initializing.\n");
 
-    // Map GPIO memory
-    gpio_registers = (unsigned int *)ioremap(BCM2837_GPIO_ADDRESS, PAGE_SIZE);
-    if (!gpio_registers)
-    {
-        printk(KERN_ALERT "GPIO LED: Failed to map GPIO memory.\n");
-        return -ENOMEM;
-    }
+	// Map GPIO memory
+	gpio_registers = (unsigned int *)ioremap(BCM2837_GPIO_ADDRESS, PAGE_SIZE);
+	if (!gpio_registers)
+	{
+		printk(KERN_ALERT "GPIO LED: Failed to map GPIO memory.\n");
+		return -ENOMEM;
+	}
 
-    printk(KERN_INFO "GPIO LED: Successfully mapped GPIO memory.\n");
+	printk(KERN_INFO "GPIO LED: Successfully mapped GPIO memory.\n");
 
-    // Register character device
-    major_number = register_chrdev(0, DEVICE_NAME, &fops);
-    if (major_number < 0)
-    {
-        printk(KERN_ALERT "GPIO LED: Failed to register a major number.\n");
-        iounmap(gpio_registers);
-        return major_number;
-    }
+	// Register character device
+	major_number = register_chrdev(0, DEVICE_NAME, &fops);
+	if (major_number < 0)
+	{
+		printk(KERN_ALERT "GPIO LED: Failed to register a major number.\n");
+		iounmap(gpio_registers);
+		return major_number;
+	}
 
-    printk(KERN_INFO "GPIO LED: Registered correctly with major number %d.\n", major_number);
-    return 0;
+	printk(KERN_INFO "GPIO LED: Registered correctly with major number %d.\n", major_number);
+	return 0;
 }
 
 /**
@@ -176,10 +185,10 @@ static int __init gpio_led_init(void)
  */
 static void __exit gpio_led_exit(void)
 {
-    gpio_pin_off(GPIO_LED);                             // Turn off the LED
-    iounmap(gpio_registers);                            // Unmap GPIO memory
-    unregister_chrdev(major_number, DEVICE_NAME);       // Unregister device
-    printk(KERN_INFO "GPIO LED: Module unloaded.\n");
+	gpio_pin_off(GPIO_LED);						  // Turn off the LED
+	iounmap(gpio_registers);					  // Unmap GPIO memory
+	unregister_chrdev(major_number, DEVICE_NAME); // Unregister device
+	printk(KERN_INFO "GPIO LED: Module unloaded.\n");
 }
 
 MODULE_LICENSE("GPL");
