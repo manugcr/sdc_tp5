@@ -109,6 +109,7 @@ static int device_release(struct inode *inode, struct file *file)
  *
  * This function is called when data is written to the device file. It turns
  * the LED on or off based on the written value.
+ * The value received from the user is a string.
  *
  * @param file Pointer to the file structure.
  * @param buffer Pointer to the user buffer containing the data to write.
@@ -118,28 +119,37 @@ static int device_release(struct inode *inode, struct file *file)
  */
 static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset)
 {
-	int value;
+    char value_str[2];
+    int value;
 
-	if (len > 0)
-	{
-		if (copy_from_user(&value, buffer, sizeof(int)))
-		{
-			printk(KERN_ALERT "GPIO LED: Failed to copy from user.\n");
-			return -EFAULT;
-		}
+    if (len > 0)
+    {
+        if (copy_from_user(value_str, buffer, sizeof(value_str) - 1))
+        {
+            printk(KERN_ALERT "GPIO LED: Failed to copy from user.\n");
+            return -EFAULT;
+        }
 
-		printk(KERN_INFO "GPIO LED: Writing value %d to GPIO %d.\n", value, GPIO_LED);
+        value_str[sizeof(value_str) - 1] = '\0';
+        value = simple_strtol(value_str, NULL, 10);
 
-		if (value)
-		{
-			gpio_pin_on(GPIO_LED);
-		}
-		else
-		{
-			gpio_pin_off(GPIO_LED);
-		}
-	}
-	return len;
+        printk(KERN_INFO "GPIO LED: Writing value %d to GPIO %d.\n", value, GPIO_LED);
+
+        if (value)
+        {
+            gpio_pin_on(GPIO_LED);
+        }
+        else if (value == 0)
+        {
+            gpio_pin_off(GPIO_LED);
+        }
+        else
+        {
+           printk(KERN_ALERT "GPIO LED: Invalid value %d.\n", value);
+           return -EINVAL;
+        }
+    }
+    return len;
 }
 
 /**
