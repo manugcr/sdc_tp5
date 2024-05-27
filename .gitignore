@@ -12,3 +12,17 @@ modules.order
 Module.symvers
 .Module.*
 .modules.*
+
+# Ignore executable files
+gpio-led/gpio-control
+*.bin
+*.so
+*.out
+*.exe
+*.elf
+
+# Ignore vscode files
+.vscode
+
+# Ignore test files
+gpio-led/test.py
