@@ -48,7 +48,7 @@ static unsigned int *gpio_registers = NULL;
 static struct file_operations fops = {
 	.open       = device_open,
 	.release    = device_release,
-    .read       = device_read,
+	.read       = device_read,
 	.write      = device_write,
 };
 
@@ -72,6 +72,9 @@ static ssize_t device_read(struct file *file, char *buffer, size_t len, loff_t *
         return -EFAULT;
 
     *offset += len;
+    
+    printk(KERN_INFO "GPIO SIGNAL: Value read %u.\n", gpio_value);
+    
     return len;
 }
 
@@ -92,6 +95,8 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
         return -EINVAL;
     }
 
+    printk(KERN_INFO "GPIO SIGNAL: Selected pin %u.\n", selected_pin);
+
     return len;
 }
 
@@ -104,11 +109,13 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
 static void gpio_pin_input(unsigned int pin)
 {
     unsigned int fsel_index		= pin / 10;
-    unsigned int fsel_bitpos	= pin % 10;
+    unsigned int fsel_bitpos		= pin % 10;
     unsigned int *gpio_fsel		= gpio_registers + fsel_index;
 
     *gpio_fsel	&=~	(7 << (fsel_bitpos * 3));	// Clear the bits for the pin
     *gpio_fsel	|=	(0 << (fsel_bitpos * 3));	// Set the pin as input
+    
+    printk(KERN_INFO "GPIO SIGNAL: Pin %d set up as input.\n", pin);
 }
 
 /**
@@ -164,7 +171,7 @@ static int __init gpio_signal_init(void)
 	printk(KERN_INFO "GPIO SIGNAL: Successfully mapped GPIO memory.\n");
 
 	gpio_pin_input(gpio_pin1);
-    gpio_pin_input(gpio_pin2);
+	gpio_pin_input(gpio_pin2);
 	selected_pin = gpio_pin1;	// Default selected pin
 
 	// Register character device

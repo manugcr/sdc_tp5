@@ -6,20 +6,35 @@ import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
  
 class GPIOPlotterApp:
-    def __init__(self, root, device):
+    def __init__(self, root, device, default_pin="1"):
+        """
+        Initialize the GPIOPlotterApp.
+ 
+        Args:
+            root (tk.Tk): The root Tkinter window.
+            device (str): The device file to read GPIO signals from.
+            default_pin (str): The default GPIO pin to start reading from.
+        """
         self.root = root
         self.device = device
         self.input_queue = queue.Queue()
-        self.current_pin = 1
+        self.current_pin = default_pin
         self.running = True
  
         self.root.title("GPIO Plotter")
         self.create_widgets()
  
+        # Set the default GPIO pin
+        self.write_signal(self.current_pin)
+ 
+        # Start the plotting thread
         self.plot_thread = threading.Thread(target=self.plot_signal)
         self.plot_thread.start()
  
     def create_widgets(self):
+        """
+        Create and arrange the widgets in the Tkinter window.
+        """
         self.plot_frame = tk.Frame(self.root)
         self.plot_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
  
@@ -42,23 +57,47 @@ class GPIOPlotterApp:
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
  
     def change_pin(self, pin):
+        """
+        Change the GPIO pin being read.
+ 
+        Args:
+            pin (str): The GPIO pin to read from.
+        """
         self.input_queue.put(pin)
  
     def quit(self):
+        """
+        Stop the plotting and close the application.
+        """
         self.running = False
         self.input_queue.put("q")
         self.plot_thread.join()
         self.root.quit()
  
     def read_signal(self):
+        """
+        Read the signal value from the device.
+ 
+        Returns:
+            int: The signal value read from the device.
+        """
         with open(self.device, 'r') as f:
             return int(f.read().strip())
  
-    def write_signal(self, device, pin):
-        with open(device, 'w') as f:
+    def write_signal(self, pin):
+        """
+        Write the GPIO pin to the device.
+ 
+        Args:
+            pin (str): The GPIO pin to write to the device.
+        """
+        with open(self.device, 'w') as f:
             f.write(pin)
-
+ 
     def plot_signal(self):
+        """
+        Continuously read and plot the signal from the GPIO pin.
+        """
         times = []
         values = []
         start_time = time.time()
@@ -74,7 +113,7 @@ class GPIOPlotterApp:
  
                 if self.current_pin != pin:
                     self.current_pin = pin
-                    self.write_signal(self.device, pin)
+                    self.write_signal(pin)
                     times = []
                     values = []
                     start_time = time.time()
@@ -99,5 +138,6 @@ class GPIOPlotterApp:
 if __name__ == "__main__":
     root = tk.Tk()
     device = "/dev/gpio-signal"
-    app = GPIOPlotterApp(root, device)
+    default_pin = "1"  # Set your default pin here
+    app = GPIOPlotterApp(root, device, default_pin)
     root.mainloop()
