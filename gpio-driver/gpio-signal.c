@@ -52,6 +52,17 @@ static struct file_operations fops = {
 	.write      = device_write,
 };
 
+/**
+ * @brief Device read function.
+ * 
+ * This function is called when the device file is read to get the value of the selected pin.
+ * 
+ * @param file Pointer to the file structure.
+ * @param buffer Pointer to the buffer where the data will be written.
+ * @param len Length of the buffer.
+ * @param offset Pointer to the offset in the file.
+ * @return Number of bytes read.
+*/
 static ssize_t device_read(struct file *file, char *buffer, size_t len, loff_t *offset)
 {
     unsigned int gpio_value;
@@ -78,6 +89,17 @@ static ssize_t device_read(struct file *file, char *buffer, size_t len, loff_t *
     return len;
 }
 
+/**
+ * @brief Device write function.
+ * 
+ * This function is called when the device file is written to select the pin to read the signal
+ * 
+ * @param file Pointer to the file structure.
+ * @param buffer Pointer to the buffer where the data is read.
+ * @param len Length of the buffer.
+ * @param offset Pointer to the offset in the file.
+ * @return Number of bytes written.
+*/
 static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset)
 {
     char kbuf[2];

@@ -1,5 +1,5 @@
 # Sistemas de Computacion
-Trabajo Practico 4 - Driver GPIO
+Trabajo Practico 5 - Driver GPIO
 
 ## Character Device Driver (CDD)
 
@@ -84,9 +84,155 @@ echo "Hello, Device!" > /dev/ttyS0
 ---
 
 ## Creacion de un Character Device Driver
-Para crear y probar nuestro CDD, vamos a utilizar una Raspberry Pi 3B+ con el sistema operativo Raspbian 64bits.
+Para crear y probar nuestro CDD, vamos a utilizar una Raspberry Pi 3B+ con el sistema operativo Raspbian 64bits. Para poder instalar el sistema operativo en la Raspberry Pi, se utiliza la herramienta [Raspberry Pi Imager](https://www.raspberrypi.org/software/) y una tarjeta SD de 8gb.
 
+El siguiente driver es un driver por `/dev/` aun que tambien se pueda crear por `/procs/`.
 
+#### Physical Addresses
+Los GPIOs (General Purpose Input/Output) son pines que se pueden configurar como entradas o salidas digitales. Los pines se numeran del 0 al 27, y para poder utilizarlos hay que tener cuenta que para el chip `BCM2837` la direccion de memoria base donde se encuentran los registros de los GPIOs es `0x3F200000`, como podemos ver en la documentacion de [BCM2837 ARM Peripherals](https://cs140e.sergio.bz/docs/BCM2837-ARM-Peripherals.pdf), donde la direccion de memoria inicial es `0x3F000000` y se tiene un offset de `0x200000`. 
+
+En linux el acceso directo a la memoria fisica se realiza a traves del mapeo de memoria, para esto se utiliza la funcion `ioremap()` que mapea una direccion fisica a una direccion virtual en el espacio de memoria del kernel. Para ello se mapean los gpios al iniciar el submodulo del kernel y luego se registra el driver con su respectivo major number para poder acceder a el desde el espacio de usuario.
+
+```c
+static int __init gpio_signal_init(void)
+{
+	printk(KERN_INFO "GPIO SIGNAL: Initializing.\n");
+
+	// Map GPIO memory
+	gpio_registers = (unsigned int *)ioremap(BCM2837_GPIO_ADDRESS, PAGE_SIZE);
+	if (!gpio_registers)
+	{
+		printk(KERN_ALERT "GPIO SIGNAL: Failed to map GPIO memory.\n");
+		return -ENOMEM;
+	}
+
+	printk(KERN_INFO "GPIO SIGNAL: Successfully mapped GPIO memory.\n");
+
+	gpio_pin_input(gpio_pin1);
+	gpio_pin_input(gpio_pin2);
+	selected_pin = gpio_pin1;	// Default selected pin
+
+	// Register character device
+	major_number = register_chrdev(0, DEVICE_NAME, &fops);
+	if (major_number < 0)
+	{
+		printk(KERN_ALERT "GPIO SIGNAL: Failed to register a major number.\n");
+		iounmap(gpio_registers);
+		return major_number;
+	}
+
+	printk(KERN_INFO "GPIO SIGNAL: Registered correctly with major number %d.\n", major_number);
+	return 0;
+}
+```
+
+#### GPIO como input
+Para configurar un GPIO como entrada, se debe escribir un `0` en el registro `GPFSELn` correspondiente al GPIO que se quiere configurar. Cuanto trabajamos con GPIO en raspberry estos se agrupan en grupos de a 10 cada uno controlado por el registro `GPFSEL` con el cual podemos configurar cada pin individualmente.
+
+Para ello primero calculamos el indice del registro `GPFSEL` y el bit correspondiente al pin que queremos configurar, con esto sabemos que el registro `GPFSEL` que queremos modificar es `gpio_registers + fsel_index` y el bit que queremos modificar es `fsel_bitpos`.
+
+```c
+static void gpio_pin_input(unsigned int pin)
+{
+	unsigned int fsel_index = pin / 10;
+	unsigned int fsel_bitpos = pin % 10;
+	unsigned int *gpio_fsel = gpio_registers + fsel_index;
+
+	*gpio_fsel &= ~(7 << (fsel_bitpos * 3));  // Limpiar los bits para el pin
+	*gpio_fsel |= (0 << (fsel_bitpos * 3));   // Configurar el pin como entrada
+}
+```
+
+#### Lectura de un GPIO
+El registro `GPLEV0` es el que contiene el valor de los pines 0-31, al cual accedemos con `*(gpio_registers + 13)`. Para leer el valor de un pin en particular, se debe hacer un `AND` entre el registro `GPLEV0` y el bit correspondiente al pin que se quiere leer.
+
+```c
+gpio_value = (*(gpio_registers + 13) & (1 << selected_pin)) != 0;
+```
+
+Este valor es el que se devuelve al usuario cuando se lee el CDD, en nuestro caso devuelve un string con el valor del pin seleccionado.
+
+#### Seleccion de un GPIO
+Para poder seleccionar desde que pin queremos obtener la señal necesitamos escribir en el CDD el numero del pin que queremos leer. El valor a escribir lo obtenemos desde el programa con la funciona copy_from_user() que copia datos desde el espacio de usuario al espacio de kernel.
+
+```c
+static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset)
+{
+    char kbuf[2];
+
+    if (len > 1) len = 1;
+
+    if (copy_from_user(kbuf, buffer, len))
+        return -EFAULT;
+
+    if (kbuf[0] == '1') {
+        selected_pin = gpio_pin1;
+    } else if (kbuf[0] == '2') {
+        selected_pin = gpio_pin2;
+    } else {
+        return -EINVAL;
+    }
+
+    printk(KERN_INFO "GPIO SIGNAL: Selected pin %u.\n", selected_pin);
+
+    return len;
+}
+```
+
+## Conexiones fisicas
+Las señales que vamos a sensar vienen de un timer `LM555` que genera una señal cuadrada con un periodo de 1 segundo (0.5 HIGH - 0.5 LOW), y una segunda señal que es simplemente un boton que se presiona para generar un pulso alto o bajo. Los pines utilizados por default como input son el GPIO 22 y el GPIO 27, pero estos se pueden dar como paramatros al cargar el modulo del kernel.
+
+<p align="center">
+  <img src="./imgs/pinout.png"><br>
+  <em>Fig 2. Pinout RPI 3b+.</em>
+</p>
+
+---
+## Ejecucion
+Para compilar el modulo del kernel se debe ejecutar el comando `make` en la carpeta del proyecto, esto generara el archivo `gpio_signal.ko` que se debe copiar a la raspberry pi. Luego se debe cargar el modulo con el comando `sudo insmod gpio-signal.ko gpio_pin1=22 gpio_pin2=27` y se puede ver el log del kernel con el comando `dmesg`.
+
+```bash
+$ dmesg | tail
+[123.456789] GPIO SIGNAL: Device opened.
+[123.567890] GPIO SIGNAL: Selected pin 22.
+[123.678901] GPIO SIGNAL: Pin 22 set up as input.
+[123.789012] GPIO SIGNAL: Value read 1.
+[123.890123] GPIO SIGNAL: Device closed.
+```
+
+Para simplificar el proceso de carga del modulo se puede utilizar el script `build.sh` que carga el modulo con los pines por default. El cual tambien setea el major number del driver para poder acceder a el desde el espacio de usuario.
+
+```bash
+MAJOR_NUMBER=$(awk "\$2==\"$MODULE_NAME\" {print \$1}" /proc/devices)
+```
+
+El `minor number` complementa al `major number` al proporcionar una identificación única para un dispositivo específico manejado por un controlador de dispositivo en el sistema de archivos de dispositivos, para nuestro caso el minor number es 0.
+
+Para poder tener comunicacion usuario-kernel necesitamos crear un archivo especial en `/dev/` con el comando `mknod /dev/gpio_signal c $MAJOR_NUMBER 0` y luego se puede escribir y leer del archivo con los comandos `echo` y `cat`. Con chmod se le da permisos de lectura y escritura al archivo.
+
+```bash
+sudo mknod $DEVICE_PATH c $MAJOR_NUMBER 0
+sudo chmod 666 $DEVICE_PATH
+```
+
+### Programa a nivel de usuario
+Para poder leer y escribir en el CDD se debe utilizar un programa a nivel de usuario que se comunique con el driver. En nuestro caso utilizamos un programa en python que lee el archivo `/dev/gpio_signal` y muestra el valor del pin seleccionado. 
+
+Para la interfaz grafica y los plots se utilizo tkinter y matplotlib, en el cual se utilizaron threads para poder monitorear constantemente el valor de pin a graficar, y para poder cambiar el pin seleccionado desde la interfaz. Al cambiar de pin seleccionado se resetea el grafico.
+
+<p align="center">
+  <img src="./imgs/graph.png"><br>
+  <em>Fig 2. Ejemplo de ejecucion del programa nivel usuario.</em>
+</p>
+
+---
+
+## Video de ejemplo de ejecucion
+
+<p align="center">
+  <img src=""><br>
+  <em>Fig 3. Ejemplo de ejecucion.</em>
+</p>
 
 ---
 
@@ -94,3 +240,6 @@ Para crear y probar nuestro CDD, vamos a utilizar una Raspberry Pi 3B+ con el si
 
 - [Raspberry Pi Kernel Development - LowLevelLearning](https://www.youtube.com/watch?v=lWzFFusYg6g&list=PLc7W4b0WHTAX4F1Byvs4Bp7c8yCDSiKa9)
 - [Raspberry Pi C Kernel - LowLevelLearning](https://www.youtube.com/watch?v=mshVdGlGwBs)
+- [Raspberry Pi Imager](https://www.raspberrypi.org/software/)
+- [BCM2837 ARM Peripherals](https://cs140e.sergio.bz/docs/BCM2837-ARM-Peripherals.pdf)
+- [Repositorio device-drivers-main](https://gitlab.com/sistemas-de-computacion-unc/device-drivers/)
