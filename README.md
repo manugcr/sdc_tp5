@@ -221,18 +221,17 @@ Para poder leer y escribir en el CDD se debe utilizar un programa a nivel de usu
 Para la interfaz grafica y los plots se utilizo tkinter y matplotlib, en el cual se utilizaron threads para poder monitorear constantemente el valor de pin a graficar, y para poder cambiar el pin seleccionado desde la interfaz. Al cambiar de pin seleccionado se resetea el grafico.
 
 <p align="center">
-  <img src="./imgs/graph.png"><br>
-  <em>Fig 2. Ejemplo de ejecucion del programa nivel usuario.</em>
+  <img src="./imgs/execution.png"><br>
+  <em>Fig 3. Ejemplo de ejecucion del programa nivel usuario.</em>
 </p>
 
 ---
 
-## Video de ejemplo de ejecucion
+## Circuito
 
 <p align="center">
-  <img src=""><br>
-  <em>Fig 3. Ejemplo de ejecucion.</em>
-</p>
+  <img src="./imgs/circuit.png"><br>
+  <em>Fig 4. Circuito utilizado para el TP.</em>
 
 ---
 
