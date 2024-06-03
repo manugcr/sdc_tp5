@@ -22,6 +22,11 @@ Algunos ejemplos de drivers fueron proporcionados por la catedra desde el reposi
 ## Que es un Driver?
 Un **driver** es un software que permite que el sistema operativo se comunique con el hardware de la computadora. Actúa como un traductor entre el sistema operativo y el hardware, facilitando la ejecución de comandos y la transferencia de datos. Los drivers son esenciales para el funcionamiento correcto de los dispositivos, ya que sin ellos el sistema operativo no podría reconocer ni utilizar el hardware.
 
+<p align="center">
+  <img src="./imgs/driver-diagram.png"><br>
+  <em>Fig 0. Diagrama drivers.</em>
+</p>
+
 ### Que es un Device Driver?
 Un **device driver** es un tipo de driver que permite que el sistema operativo controle y utilice un dispositivo hardware específico, como una impresora, una tarjeta gráfica o un disco duro. Cada tipo de hardware tiene su propio device driver, que proporciona la interfaz necesaria para que el sistema operativo y el dispositivo se entiendan mutuamente.
 
@@ -232,6 +237,14 @@ Para la interfaz grafica y los plots se utilizo tkinter y matplotlib, en el cual
 <p align="center">
   <img src="./imgs/circuit.png"><br>
   <em>Fig 4. Circuito utilizado para el TP.</em>
+</p>
+
+
+<p align="center">
+  <video src="https://github.com/manugcr/sdc_tp5/assets/20894332/a3630130-036e-47be-9516-d987a6804c28" controls></video><br>
+  <em>Fig 5. Video funcionamiento.</em>
+</p>
+
 
 ---
 
