@@ -69,19 +69,26 @@ static ssize_t device_read(struct file *file, char *buffer, size_t len, loff_t *
     char value_str[3];
     size_t value_str_len;
 
+    // Read the value of the GPIO pin
     gpio_value = (*(gpio_registers + 13) & (1 << selected_pin)) != 0;
+
+    // Convert the GPIO value to a string ("0\n" or "1\n")
     snprintf(value_str, sizeof(value_str), "%d\n", gpio_value);
     value_str_len = strlen(value_str);
 
+    // Check if the offset is beyond the string length
     if (*offset >= value_str_len)
         return 0;
 
+    // Adjust len to ensure it doesnt read beyond the end of the string
     if (len > value_str_len - *offset)
         len = value_str_len - *offset;
 
+    // Copy the data to the user buffer
     if (copy_to_user(buffer, value_str + *offset, len))
         return -EFAULT;
 
+    // Number of bytes read
     *offset += len;
     
     printk(KERN_INFO "GPIO SIGNAL: Value read %u.\n", gpio_value);
@@ -104,8 +111,10 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
 {
     char kbuf[2];
 
+    // Limit amount of data to read to 1 byte
     if (len > 1) len = 1;
 
+    // Copy the data from the user buffer (pin to set)
     if (copy_from_user(kbuf, buffer, len))
         return -EFAULT;
 
@@ -125,13 +134,16 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
 /**
  * @brief Set the GPIO pin as input.
  * 
+ * GPIOs are in groups of 10, so the function calculates the index and bit position
+ * Each pin has 3 bits in the FSEL register.
+ * 
  * @param pin The GPIO pin number to set as input.
  * @return void
 */
 static void gpio_pin_input(unsigned int pin)
 {
     unsigned int fsel_index		= pin / 10;
-    unsigned int fsel_bitpos		= pin % 10;
+    unsigned int fsel_bitpos	= pin % 10;
     unsigned int *gpio_fsel		= gpio_registers + fsel_index;
 
     *gpio_fsel	&=~	(7 << (fsel_bitpos * 3));	// Clear the bits for the pin

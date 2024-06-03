@@ -239,13 +239,6 @@ Para la interfaz grafica y los plots se utilizo tkinter y matplotlib, en el cual
   <em>Fig 4. Circuito utilizado para el TP.</em>
 </p>
 
-
-<p align="center">
-  <video src="https://github.com/manugcr/sdc_tp5/assets/20894332/a3630130-036e-47be-9516-d987a6804c28" controls></video><br>
-  <em>Fig 5. Video funcionamiento.</em>
-</p>
-
-
 ---
 
 ## Bibliografia
